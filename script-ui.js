@@ -6,8 +6,11 @@ async function analyzeLocally(startLocation, destination, departureTime, returnT
     var eventDestination = event.destination || destination;
     var outboundBundle = await getRoutes(startLocation, eventDestination);
     var returnBundle = await getRoutes(eventDestination, startLocation);
+    var liveTraffic = typeof unavailableLiveTraffic === "function" ? unavailableLiveTraffic("The local fallback cannot read a licensed live-speed feed. Live traffic is unavailable.") : { available: false, status: "unavailable", additional_minutes: null, source: "None configured", checked_at: new Date().toISOString(), note: "Live traffic is unavailable." };
     var outbound = applyScenario(outboundBundle.routes[0].duration_minutes, departureTime, outboundScenario(departureTime, event));
+    if (typeof applyLiveTraffic === "function") { outbound.breakdown = applyLiveTraffic(outbound.breakdown, liveTraffic); outbound.estimated_minutes = outbound.breakdown.estimated_minutes; }
     var inbound = applyScenario(returnBundle.routes[0].duration_minutes, returnTime, returnScenario(returnTime, event));
+    if (typeof applyLiveTraffic === "function") { inbound.breakdown = applyLiveTraffic(inbound.breakdown, liveTraffic); inbound.estimated_minutes = inbound.breakdown.estimated_minutes; }
     var outboundOptions = outboundBundle.routes.map(function (option) {
         var adjusted = applyScenario(option.duration_minutes, departureTime, outboundScenario(departureTime, event));
         return { id: option.id, label: option.label, distance_miles: option.distance_miles, normal_minutes: adjusted.normal_minutes, estimated_minutes: adjusted.estimated_minutes, breakdown: adjusted.breakdown, geometry: option.geometry || [] };
@@ -29,12 +32,13 @@ async function analyzeLocally(startLocation, destination, departureTime, returnT
     return {
         event: event,
         request: { event_id: event.event_id || eventId, start_location: startLocation, resolved_start: outboundBundle.start.display_name, departure_time: departureTime, return_time: returnTime },
-        estimate_disclaimer: "Journey times are event-adjusted estimates based on a normal OSRM driving time, an event timing factor and additional event-related delay. They are not measured live traffic speeds.",
+        estimate_disclaimer: "Journey times keep the OSRM normal duration separate from the event model. Live traffic minutes are included only when a licensed measured-speed source is available.",
         outbound: Object.assign({ distance_miles: outboundBundle.routes[0].distance_miles, routes: outboundOptions }, outbound),
         return: Object.assign({ distance_miles: returnBundle.routes[0].distance_miles, routes: returnOptions }, inbound),
         crowd: crowdRiskFromEvent(event, departureTime),
         parking: parking,
         map: { start: outboundBundle.start, destination: outboundBundle.destination, outbound_routes: outboundOptions, return_routes: returnOptions, parking: parking },
+        live_transport: { live_traffic: liveTraffic, live_disruptions: { available: false, status: "unavailable", items: [], source: "None configured", checked_at: liveTraffic.checked_at, note: "Local fallback does not call licensed disruption APIs." }, checked_at: liveTraffic.checked_at, limitations: "Live speed data is unavailable in the browser fallback." },
         road_conditions: { source: "TfGM", status: "configured records", note: "Verified disruption records are listed separately from modelled journey estimates." }
     };
 }
@@ -53,6 +57,7 @@ function displayResults(data) {
     var crowd = data.crowd || {};
     if (data.event) { cachedEvent = data.event; renderEvent(data.event); }
     displayDisruptions((data.event && (data.event.verified_disruptions || data.event.disruptions)) || []);
+    displayLiveTransport(data.live_transport || {}, outbound);
     document.getElementById("outboundDistance").textContent = outbound.distance_miles != null ? outbound.distance_miles + " miles" : "-";
     document.getElementById("outboundTime").textContent = outbound.estimated_minutes != null ? outbound.estimated_minutes + " min" : "-";
     document.getElementById("arrivalTime").textContent = formatArrivalValue(outbound);
@@ -64,30 +69,72 @@ function displayResults(data) {
     var breakdown = breakdownFromJourney(outbound);
     document.getElementById("outboundDetails").innerHTML =
         row("Resolved origin", escapeHtml(resolvedOrigin)) +
-        row("Normal routing time", formatValue(breakdown.normal_minutes, "min")) +
-        row("Event adjustment", signedMinutes(breakdown.event_impact_minutes)) +
+        row("Normal route", formatValue(breakdown.normal_minutes, "min")) +
+        row("Live traffic", (breakdown.live_traffic_available && breakdown.live_traffic_minutes != null) ? signedMinutes(breakdown.live_traffic_minutes) : "Unavailable") +
+        row("Event impact", signedMinutes(breakdown.event_impact_minutes)) +
         row("Additional event delay", signedMinutes(breakdown.extra_delay_minutes)) +
-        row("Estimated journey time", formatValue(breakdown.estimated_minutes, "min")) +
+        row("Estimated journey", formatValue(breakdown.estimated_minutes, "min")) +
         row("Traffic factor", outbound.factor != null ? outbound.factor + "x" : "-") +
         row("Condition", escapeHtml(outbound.label || "-")) +
-        note(data.estimate_disclaimer || "Journey times are event-adjusted estimates and are not measured live traffic speeds.");
+        note(data.estimate_disclaimer || "OSRM normal time is not replaced by live traffic.");
     document.getElementById("crowdDetails").innerHTML =
         row("Risk level", escapeHtml(crowd.level || "-")) +
         row("Risk score", crowd.score != null ? crowd.score + "/6" : "-") +
         row("Factors", escapeHtml((crowd.reasons || []).join(", ") || "-"));
     var returnBreakdown = breakdownFromJourney(returnJourney);
     document.getElementById("returnDetails").innerHTML =
-        row("Normal routing time", formatValue(returnBreakdown.normal_minutes, "min")) +
-        row("Event adjustment", signedMinutes(returnBreakdown.event_impact_minutes)) +
+        row("Normal route", formatValue(returnBreakdown.normal_minutes, "min")) +
+        row("Live traffic", (returnBreakdown.live_traffic_available && returnBreakdown.live_traffic_minutes != null) ? signedMinutes(returnBreakdown.live_traffic_minutes) : "Unavailable") +
+        row("Event impact", signedMinutes(returnBreakdown.event_impact_minutes)) +
         row("Additional event delay", signedMinutes(returnBreakdown.extra_delay_minutes)) +
-        row("Estimated journey time", formatValue(returnBreakdown.estimated_minutes, "min")) +
+        row("Estimated journey", formatValue(returnBreakdown.estimated_minutes, "min")) +
         row("Estimated arrival", escapeHtml(formatArrivalValue(returnJourney))) +
         row("Day rollover", returnJourney.day_rollover ? "Yes (" + escapeHtml(formatArrivalValue(returnJourney)) + ")" : "No") +
         row("Return risk", escapeHtml(returnJourney.risk || "-")) +
         row("Condition", escapeHtml(returnJourney.label || "-")) +
-        note("Return times are modelled from the same event-adjustment method. They are not live measured speeds.");
+        note("Return times use the same layered method. Live minutes are only added when a measured source is available.");
     displayParking(data.parking);
     displayTransport(data.road_conditions);
+}
+
+function displayLiveTransport(liveTransport, outbound) {
+    var container = document.getElementById("liveTransportDetails");
+    if (!container) return;
+    liveTransport = liveTransport || {};
+    var live = liveTransport.live_traffic || { available: false, status: "unavailable", additional_minutes: null, source: "None configured", checked_at: liveTransport.checked_at, note: liveTransport.limitations || "Live speed data is unavailable." };
+    var disruptions = liveTransport.live_disruptions || {};
+    var items = disruptions.items || [];
+    var statusLabel = live.available ? "Live" : (live.status === "stale" ? "Stale" : "Unavailable");
+    var liveValue = live.available && live.additional_minutes != null ? signedMinutes(live.additional_minutes) : "Unavailable";
+    var breakdown = breakdownFromJourney(outbound || {});
+    var age = live.age_minutes;
+    if (age == null && live.checked_at) {
+        var checked = Date.parse(live.checked_at);
+        if (!isNaN(checked)) age = Math.max(0, Math.round((Date.now() - checked) / 60000));
+    }
+    var freshness = age == null ? "Updated time unknown" : (age <= 0 ? "Updated just now" : (age === 1 ? "Updated 1 minute ago" : "Updated " + age + " minutes ago"));
+    var html = '<div class="live-status-row"><span class="live-pill">' + escapeHtml(statusLabel) + "</span><span>" + escapeHtml(freshness) + "</span></div>";
+    html += row("Source", escapeHtml(live.source || "None configured"));
+    html += row("Live traffic", liveValue);
+    html += row("Normal route", formatValue(breakdown.normal_minutes, "min"));
+    html += row("Event impact", signedMinutes(breakdown.event_impact_minutes));
+    html += row("Estimated journey", formatValue(breakdown.estimated_minutes, "min"));
+    html += note(live.note || "Live traffic is shown only when a measured source is available.");
+    if (items.length) {
+        html += "<h4>Live disruptions</h4>";
+        html += items.map(function (item) {
+            return '<div class="parking-option"><h4>' + escapeHtml(item.title) + "</h4>" +
+                row("Type", escapeHtml(item.type || "-")) +
+                row("Affected road / location", escapeHtml(item.affected_road || item.location || "-")) +
+                row("Period", escapeHtml((item.start || "-") + " -> " + (item.end || "-"))) +
+                row("Severity / status", escapeHtml((item.severity || "-") + " / " + (item.status || "-"))) +
+                row("Source", escapeHtml(item.source || "-")) +
+                row("Retrieved", escapeHtml(item.checked_at || liveTransport.checked_at || "-")) + "</div>";
+        }).join("");
+    } else {
+        html += note(disruptions.note || "No structured live disruption records were returned. Configured event disruptions remain listed above and are not labelled live.");
+    }
+    container.innerHTML = html;
 }
 
 function displayJourneySummary(data) {
@@ -219,7 +266,7 @@ function displayDisruptions(disruptions) {
             row("Period", escapeHtml((item.start || "-") + " -> " + (item.end || "-"))) +
             row("Impact", escapeHtml(item.impact || "-")) +
             row("Source", escapeHtml(item.source || "TfGM")) +
-            note("Verified disruption information. This is separate from modelled / event-adjusted travel estimates.") + '</div>';
+            note("Configured / verified disruption information. This is not a live traffic measurement.") + '</div>';
     }).join("");
 }
 
