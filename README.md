@@ -6,18 +6,45 @@ Live frontend: https://aboladvisuals.github.io/event-travel-intelligence/
 
 Live API: https://event-travel-intelligence.onrender.com
 
-Current event: **NSPPD UK Prayer Conference**, Old Trafford, Manchester, 26 September 2026.
+Current production event: **NSPPD UK Prayer Conference**, Old Trafford, Manchester, 26 September 2026.
+
+## Dynamic Event Engine
+
+Events are configuration data. Travel intelligence is a separate engine that consumes an event object.
+
+```
+EVENT DATA
+    ↓
+EVENT STORE (JSON files)
+    ↓
+TRAVEL INTELLIGENCE ENGINE
+    ↓
+JOURNEY ANALYSIS
+    ↓
+FRONTEND
+```
+
+- Event records live in `data/events/*.json`.
+- The reusable schema is `backend/event_model.py`.
+- The store is `backend/event_store.py`.
+- `backend/travel_engine.py` reads traffic-management windows, start/end times, capacity and destination from the selected event. It does not hardcode NSPPD.
+- Adding another event means adding event data, not rewriting the travel engine.
+- The current NSPPD event (`nsppd-uk-old-trafford-2026`) is the production example.
+- `test-event-manchester` is fictional and for development only. It exists to prove the engine reads event configuration dynamically. It must not be presented as a real event.
+
+The frontend loads available events from `GET /events` and can select one. If the public API is blocked, it falls back to same-origin `events.json` / `event.json` and can still calculate an event-adjusted route with Nominatim + OSRM.
 
 ## Problem being solved
 
 Large events create congestion, road restrictions and uncertain parking. People leaving from different towns need a single place to:
 
+- choose a configured event
 - enter any reasonable starting location
-- see the current event and destination
+- see the event destination and traffic-management window
 - get an estimated outbound and return journey
 - see crowd / event-period risk
 - see verified disruption records
-- compare Park & Ride options
+- compare Park & Ride options associated with that event
 
 The app does **not** pretend to be a live traffic-speed or live parking-occupancy product.
 
@@ -25,25 +52,26 @@ The app does **not** pretend to be a live traffic-speed or live parking-occupanc
 
 ```
 Browser (GitHub Pages)
-    GET  /event   (Render API, with event.json fallback)
-    POST /analyze (Render API, with Nominatim + OSRM fallback)
+    GET  /events            (Render API, with events.json fallback)
+    GET  /events/{event_id} (Render API, with local event fallback)
+    GET  /event             (legacy default event)
+    POST /analyze           (Render API, with Nominatim + OSRM fallback)
         -> FastAPI on Render
-            -> Nominatim geocoding
+            -> Event store
+            -> Nominatim geocoding (UK-biased)
             -> OSRM driving routes
-            -> Event configuration
-            -> Verified TfGM-attributed disruptions
-            -> Park & Ride drive + transfer estimates
+            -> Event-configured timing, disruptions and parking
 ```
 
 - **Frontend**: static HTML, CSS and JavaScript on GitHub Pages.
 - **Backend**: FastAPI (`backend/main.py`) deployed on Render.
-- **Nominatim**: geocodes any user-supplied origin (and parking sites) to coordinates.
+- **Nominatim**: geocodes any user-supplied origin (and parking sites) to coordinates. Ambiguous UK names prefer `countrycodes=gb`.
 - **OSRM**: public driving router used for a *normal* route distance and duration.
-- **Event intelligence**: configured venue, date, capacity and traffic-management window.
-- **Disruption intelligence**: verified records stored in `backend/event_config.py`, attributed to TfGM.
-- **Park & Ride intelligence**: Ladywell, Parkway and Sale Water Park. Drive time from the origin plus a configured transfer time.
+- **Event intelligence**: selected event venue, date, capacity and traffic-management window.
+- **Disruption intelligence**: verified records stored on the event, attributed to TfGM for the production event.
+- **Park & Ride intelligence**: options configured on the selected event. Drive time from the origin plus a configured transfer time.
 
-The original Pages failure (`Loading event...`) was caused by the browser blocking `https://event-travel-intelligence.onrender.com/event` because the API did not send CORS headers. The backend now includes FastAPI CORS middleware. The frontend still calls the public API first. If the browser cannot read that response, it falls back to same-origin `event.json` and can calculate an event-adjusted route with Nominatim + OSRM so the public site keeps working.
+The original Pages failure (`Loading event...`) was caused by the browser blocking the public API because CORS headers were missing. The backend includes FastAPI CORS middleware. The frontend still calls the public API first. If the browser cannot read that response, it falls back to same-origin event files and can calculate an event-adjusted route so the public site keeps working.
 
 ## Important limitations
 
@@ -54,28 +82,32 @@ The original Pages failure (`Loading event...`) was caused by the browser blocki
 
 - Verified disruption records are separate from modelled travel estimates.
 - Nominatim is a public geocoder and may rate-limit requests. The backend caches coordinates and retries 429 responses.
-- The destination is the configured event venue, not an arbitrary second user destination.
+- The destination is the selected event venue, not an arbitrary second user destination.
+- The test event is fictional and must not be treated as production information.
 
 ## API endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` | Service name, status and current event |
+| GET | `/` | Service name, status, default event and version `1.1.0` |
 | GET | `/health` | Health check |
-| GET | `/event` | Full event configuration, destination and verified disruptions |
-| POST | `/analyze` | Geocode origin, route, event-adjusted times, crowd risk, parking, transport status |
+| GET | `/events` | Available events |
+| GET | `/events/{event_id}` | Full configuration for one event |
+| GET | `/event` | Legacy default/current event (NSPPD) |
+| POST | `/analyze` | Geocode origin, route to selected event, event-adjusted times, crowd risk, parking, transport status |
 
 ### Example analyze payload
 
 ```json
 {
-  "start_location": "Leeds",
+  "event_id": "nsppd-uk-old-trafford-2026",
+  "start_location": "Southampton",
   "departure_time": "08:00",
   "return_time": "20:30"
 }
 ```
 
-`destination` and `event_capacity` may be sent by the frontend but the backend uses the configured event destination and capacity.
+If `event_id` is omitted, the backend uses the production NSPPD event. `destination` may be sent by the frontend, but routing uses the selected event destination.
 
 ## Local setup
 
@@ -84,6 +116,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+python tests/test_event_engine.py
 ```
 
 Open the repository-root GitHub Pages files (`index.html`, `style.css`, `script.js`) or `frontend/index.html` with a local static server.
@@ -95,7 +128,7 @@ The frontend calls the public Render API by default:
 ## Deployment
 
 - Backend: Render web service from this repository, command typically `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
-- After pushing backend CORS changes, trigger a Render deploy if auto-deploy is off. The live API should report version `1.0.1` and send `Access-Control-Allow-Origin` for `https://aboladvisuals.github.io`.
+- After pushing backend changes, trigger a Render deploy if auto-deploy is off. The live API should report version `1.1.0` and send `Access-Control-Allow-Origin` for `https://aboladvisuals.github.io`.
 - Frontend: GitHub Pages from the repository root so `/event-travel-intelligence/` serves `index.html`.
 - CORS is configured in `backend/main.py` for `https://aboladvisuals.github.io` and other `*.github.io` origins.
 
@@ -103,8 +136,12 @@ Do not commit `.env` files, secrets or API keys.
 
 ## Future improvements
 
-- A reliable live parking-occupancy source, clearly labelled as live only if the feed is real.
-- Official TfGM / National Highways structured disruption APIs instead of configured records plus a status check.
-- A measured traffic source if one is licensed; until then keep calling results estimates.
-- Map display of the OSRM geometry.
-- Persist geocode cache beyond a single process.
+Deferred to later phases:
+
+- Event search / discovery experience
+- Maps
+- A reliable live parking-occupancy source, clearly labelled as live only if the feed is real
+- Official TfGM / National Highways structured disruption APIs
+- A measured traffic source if one is licensed
+- User accounts
+- Persist geocode cache beyond a single process
