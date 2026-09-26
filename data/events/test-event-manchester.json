@@ -1,0 +1,32 @@
+{
+  "event_id": "test-event-manchester",
+  "name": "Test Event Manchester",
+  "venue": "Test Venue",
+  "city": "Manchester",
+  "country": "United Kingdom",
+  "date": "2026-10-10",
+  "capacity": 10000,
+  "destination": "Manchester, UK",
+  "start_time": "14:00",
+  "end_time": "18:00",
+  "traffic_management_start": "14:00",
+  "traffic_management_end": "18:00",
+  "fictional": true,
+  "disruptions": [
+    {
+      "title": "Fictional test traffic window",
+      "type": "Test record",
+      "start": "14:00",
+      "end": "18:00",
+      "impact": "Development-only disruption record. This is not a real road restriction.",
+      "source": "Test data"
+    }
+  ],
+  "parking_options": [
+    {
+      "name": "Test Park & Ride",
+      "location": "Manchester Piccadilly, Manchester, UK",
+      "transfer_minutes": 15
+    }
+  ]
+}
