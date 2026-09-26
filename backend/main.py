@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.data_sources import (
@@ -12,9 +14,10 @@ from backend.event_model import JourneyRequest
 from backend.event_store import (
     DEFAULT_EVENT_ID,
     event_to_public,
+    event_to_summary,
     get_default_event,
     get_event,
-    list_events,
+    search_events,
 )
 from backend.travel_engine import calculate_crowd_risk, calculate_journey
 
@@ -22,7 +25,7 @@ from backend.travel_engine import calculate_crowd_risk, calculate_journey
 app = FastAPI(
     title="Event Travel Intelligence API",
     description="Travel intelligence for major events.",
-    version="1.1.0",
+    version="1.2.0",
 )
 
 app.add_middleware(
@@ -47,7 +50,7 @@ def root():
     return {
         "name": "Event Travel Intelligence API",
         "status": "online",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "event": event.name,
         "venue": event.venue,
         "default_event_id": event.event_id,
@@ -60,26 +63,28 @@ def health():
 
 
 @app.get("/events")
-def events():
-    return [
-        {
-            "event_id": event.event_id,
-            "name": event.name,
-            "venue": event.venue,
-            "city": event.city,
-            "date": event.date,
-            "fictional": event.fictional,
-        }
-        for event in list_events()
-    ]
+def events(
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+):
+    return [event_to_summary(event) for event in search_events(date_from=date_from, date_to=date_to)]
+
+
+@app.get("/events/search")
+def events_search(
+    q: Optional[str] = None,
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+):
+    return [event_to_summary(event) for event in search_events(q, date_from, date_to)]
 
 
 @app.get("/events/{event_id}")
 def event_by_id(event_id: str):
     try:
         return event_to_public(get_event(event_id))
-    except KeyError as error:
-        raise HTTPException(status_code=404, detail=str(error))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Event not found")
 
 
 @app.get("/event")
@@ -99,8 +104,8 @@ def analyze_journey(request: JourneyRequest):
 
         try:
             event = get_event(request.event_id or DEFAULT_EVENT_ID)
-        except KeyError as error:
-            raise ValueError(str(error))
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Event not found")
 
         public_event = event_to_public(event)
         destination = event.destination
@@ -172,6 +177,8 @@ def analyze_journey(request: JourneyRequest):
             },
         }
 
+    except HTTPException:
+        raise
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     except Exception as error:
