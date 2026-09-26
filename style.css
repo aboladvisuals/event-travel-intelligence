@@ -188,6 +188,38 @@ button:disabled {
     margin-bottom: 8px;
 }
 
+.journey-map {
+    width: 100%;
+    height: 420px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 10px;
+}
+
+.route-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.route-table th,
+.route-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.95rem;
+}
+
+.route-table th {
+    color: #64748b;
+    font-weight: 600;
+}
+
+.summary-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
 .event-results {
     display: grid;
     gap: 14px;
@@ -267,7 +299,8 @@ footer {
 
 @media (max-width: 800px) {
 
-    .form-grid {
+    .form-grid,
+    .summary-split {
         grid-template-columns: 1fr;
     }
 
