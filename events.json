@@ -1,0 +1,120 @@
+[
+  {
+    "event_id": "nsppd-uk-old-trafford-2026",
+    "name": "NSPPD UK Prayer Conference",
+    "venue": "Old Trafford",
+    "city": "Manchester",
+    "country": "United Kingdom",
+    "date": "2026-09-26",
+    "capacity": 50000,
+    "destination": "Old Trafford, Manchester, UK",
+    "start_time": "11:30",
+    "end_time": "21:00",
+    "traffic_management_start": "11:30",
+    "traffic_management_end": "21:00",
+    "traffic_management": {
+      "start": "11:30",
+      "end": "21:00"
+    },
+    "verified_disruptions": [
+      {
+        "title": "NSPPD Old Trafford event traffic management",
+        "type": "Event traffic",
+        "start": "11:30",
+        "end": "21:00",
+        "impact": "Traffic management and event-related congestion around Old Trafford",
+        "source": "TfGM"
+      },
+      {
+        "title": "M60 Simister Island closure",
+        "type": "Road closure",
+        "start": "2026-09-26",
+        "end": "2026-09-28",
+        "impact": "M60 J17-J18 closure may affect journeys approaching Manchester",
+        "source": "TfGM"
+      }
+    ],
+    "disruptions": [
+      {
+        "title": "NSPPD Old Trafford event traffic management",
+        "type": "Event traffic",
+        "start": "11:30",
+        "end": "21:00",
+        "impact": "Traffic management and event-related congestion around Old Trafford",
+        "source": "TfGM"
+      },
+      {
+        "title": "M60 Simister Island closure",
+        "type": "Road closure",
+        "start": "2026-09-26",
+        "end": "2026-09-28",
+        "impact": "M60 J17-J18 closure may affect journeys approaching Manchester",
+        "source": "TfGM"
+      }
+    ],
+    "parking_options": [
+      {
+        "name": "Ladywell Park & Ride",
+        "location": "Ladywell, Manchester, UK",
+        "transfer_minutes": 25
+      },
+      {
+        "name": "Parkway Park & Ride",
+        "location": "Parkway, Manchester, UK",
+        "transfer_minutes": 25
+      },
+      {
+        "name": "Sale Water Park Park & Ride",
+        "location": "Sale Water Park, Manchester, UK",
+        "transfer_minutes": 20
+      }
+    ],
+    "fictional": false
+  },
+  {
+    "event_id": "test-event-manchester",
+    "name": "Test Event Manchester",
+    "venue": "Test Venue",
+    "city": "Manchester",
+    "country": "United Kingdom",
+    "date": "2026-10-10",
+    "capacity": 10000,
+    "destination": "Manchester, UK",
+    "start_time": "14:00",
+    "end_time": "18:00",
+    "traffic_management_start": "14:00",
+    "traffic_management_end": "18:00",
+    "traffic_management": {
+      "start": "14:00",
+      "end": "18:00"
+    },
+    "verified_disruptions": [
+      {
+        "title": "Fictional test traffic window",
+        "type": "Test record",
+        "start": "14:00",
+        "end": "18:00",
+        "impact": "Development-only disruption record. This is not a real road restriction.",
+        "source": "Test data"
+      }
+    ],
+    "disruptions": [
+      {
+        "title": "Fictional test traffic window",
+        "type": "Test record",
+        "start": "14:00",
+        "end": "18:00",
+        "impact": "Development-only disruption record. This is not a real road restriction.",
+        "source": "Test data"
+      }
+    ],
+    "parking_options": [
+      {
+        "name": "Test Park & Ride",
+        "location": "Manchester Piccadilly, Manchester, UK",
+        "transfer_minutes": 15
+      }
+    ],
+    "fictional": true
+  }
+]
