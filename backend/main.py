@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
@@ -8,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.data_sources import (
     get_parking_options,
     get_routes,
-    get_tfgm_road_conditions,
 )
 from backend.event_model import JourneyRequest
 from backend.event_store import (
@@ -19,13 +17,19 @@ from backend.event_store import (
     get_event,
     search_events,
 )
-from backend.travel_engine import calculate_crowd_risk, calculate_journey
+from backend.live_transport import (
+    attach_live_to_journey,
+    get_live_transport,
+)
+from backend.travel_engine import calculate_crowd_risk, calculate_journey, format_arrival
 
+
+APP_VERSION = "1.4.0"
 
 app = FastAPI(
     title="Event Travel Intelligence API",
     description="Travel intelligence for major events.",
-    version="1.3.0",
+    version=APP_VERSION,
 )
 
 app.add_middleware(
@@ -50,7 +54,7 @@ def root():
     return {
         "name": "Event Travel Intelligence API",
         "status": "online",
-        "version": "1.3.0",
+        "version": APP_VERSION,
         "event": event.name,
         "venue": event.venue,
         "default_event_id": event.event_id,
@@ -59,7 +63,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": APP_VERSION}
 
 
 @app.get("/events")
@@ -90,6 +94,24 @@ def event_by_id(event_id: str):
 @app.get("/event")
 def get_current_event():
     return event_to_public(get_default_event())
+
+
+@app.get("/transport/live")
+def transport_live():
+    return get_live_transport()
+
+
+def _decorate_routes(options, live_traffic):
+    decorated = []
+    for option in options:
+        adjusted = dict(option)
+        adjusted["breakdown"] = attach_live_to_journey(
+            {"breakdown": option.get("breakdown") or {}, "estimated_minutes": option.get("estimated_minutes")},
+            live_traffic,
+        )["breakdown"]
+        adjusted["estimated_minutes"] = adjusted["breakdown"]["estimated_minutes"]
+        decorated.append(adjusted)
+    return decorated
 
 
 @app.post("/analyze")
@@ -172,7 +194,17 @@ def analyze_journey(request: JourneyRequest):
             start_location,
             parking_options=public_event["parking_options"],
         )
-        road_conditions = get_tfgm_road_conditions()
+
+        live = get_live_transport(
+            start_coords=outbound_bundle["start"],
+            dest_coords=outbound_bundle["destination"],
+            event=public_event,
+        )
+        live_traffic = live.get("live_traffic") or {}
+        outbound = attach_live_to_journey(outbound, live_traffic, format_arrival=format_arrival)
+        return_journey = attach_live_to_journey(return_journey, live_traffic, format_arrival=format_arrival)
+        outbound_options = _decorate_routes(outbound_options, live_traffic)
+        return_options = _decorate_routes(return_options, live_traffic)
 
         return {
             "event": public_event,
@@ -184,9 +216,9 @@ def analyze_journey(request: JourneyRequest):
                 "return_time": request.return_time,
             },
             "estimate_disclaimer": (
-                "Journey times are event-adjusted estimates based on a normal "
-                "OSRM driving time, an event timing factor and additional "
-                "event-related delay. They are not measured live traffic speeds."
+                "Journey times keep the OSRM normal duration separate from the "
+                "event model. Live traffic minutes are included only when a "
+                "licensed measured-speed source is configured and returns data."
             ),
             "parking_disclaimer": (
                 "Parking availability is currently not live occupancy data."
@@ -210,15 +242,13 @@ def analyze_journey(request: JourneyRequest):
             },
             "crowd": crowd,
             "parking": parking,
+            "live_transport": live,
             "road_conditions": {
-                "source": road_conditions.get("source", "TfGM"),
-                "status": road_conditions.get("status"),
-                "checked": road_conditions.get("checked"),
-                "note": (
-                    "TfGM is used as the source attribution for verified "
-                    "disruption records. Live page scrapes are not treated "
-                    "as measured traffic speeds."
-                ),
+                "source": (live.get("sources") or {}).get("tfgm_status", {}).get("source", "TfGM"),
+                "status": (live.get("sources") or {}).get("tfgm_status", {}).get("status"),
+                "checked": True,
+                "checked_at": live.get("checked_at"),
+                "note": live.get("limitations"),
             },
         }
 
