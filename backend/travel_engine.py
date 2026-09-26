@@ -126,6 +126,21 @@ def format_arrival(departure_time, estimated_minutes):
     return f"{clock} (+{days} days)"
 
 
+def arrival_rollover_days(departure_time, estimated_minutes):
+    arrival_time = departure_time + timedelta(minutes=estimated_minutes)
+    return (arrival_time.date() - departure_time.date()).days
+
+
+def journey_breakdown(normal_minutes, estimated_minutes, extra_delay):
+    event_impact = estimated_minutes - extra_delay - normal_minutes
+    return {
+        "normal_minutes": normal_minutes,
+        "event_impact_minutes": event_impact,
+        "extra_delay_minutes": extra_delay,
+        "estimated_minutes": estimated_minutes,
+    }
+
+
 def calculate_journey(
     normal_minutes,
     departure_time,
@@ -140,6 +155,12 @@ def calculate_journey(
     estimated_minutes = round(
         normal_minutes * scenario["factor"] + scenario["extra_delay"]
     )
+    breakdown = journey_breakdown(
+        normal_minutes,
+        estimated_minutes,
+        scenario["extra_delay"],
+    )
+    rollover = arrival_rollover_days(departure_time, estimated_minutes)
 
     return {
         "normal_minutes": normal_minutes,
@@ -150,6 +171,9 @@ def calculate_journey(
         "label": scenario["label"],
         "departure_time": departure_time.strftime("%H:%M"),
         "arrival_time": format_arrival(departure_time, estimated_minutes),
+        "arrival_days": rollover,
+        "day_rollover": rollover > 0,
+        "breakdown": breakdown,
     }
 
 
