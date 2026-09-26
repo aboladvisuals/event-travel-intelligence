@@ -40,6 +40,13 @@ body {
     font-size: 1.05rem;
 }
 
+.event-meta {
+    max-width: 760px;
+    margin-top: 14px;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
 main {
     padding: 35px 0 60px;
 }
@@ -112,6 +119,12 @@ button:disabled {
 .status {
     margin-top: 15px;
     font-size: 0.9rem;
+}
+
+.note {
+    margin-top: 14px;
+    color: #475569;
+    font-size: 0.88rem;
 }
 
 .results h2 {
