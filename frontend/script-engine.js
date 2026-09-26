@@ -89,10 +89,43 @@ async function routeBetween(start, dest) {
 function journeyBreakdown(normalMinutes, estimatedMinutes, extraDelay) {
     return {
         normal_minutes: normalMinutes,
+        live_traffic_minutes: null,
+        live_traffic_available: false,
         event_impact_minutes: estimatedMinutes - extraDelay - normalMinutes,
         extra_delay_minutes: extraDelay,
         estimated_minutes: estimatedMinutes
     };
+}
+
+function unavailableLiveTraffic(note) {
+    return {
+        available: false,
+        status: "unavailable",
+        additional_minutes: null,
+        source: "None configured",
+        checked_at: new Date().toISOString(),
+        age_minutes: 0,
+        note: note || "Live speed data is unavailable in the local fallback. The event-adjusted estimate is used instead."
+    };
+}
+
+function applyLiveTraffic(breakdown, liveTraffic) {
+    var next = breakdown ? Object.assign({}, breakdown) : journeyBreakdown(0, 0, 0);
+    var live = liveTraffic || {};
+    var liveMinutes = live.additional_minutes;
+    var available = !!(live.available && liveMinutes != null && isFinite(Number(liveMinutes)));
+    var normal = Number(next.normal_minutes) || 0;
+    var eventImpact = Number(next.event_impact_minutes) || 0;
+    var extra = Number(next.extra_delay_minutes) || 0;
+    if (available) {
+        next.live_traffic_minutes = Number(liveMinutes);
+        next.live_traffic_available = true;
+        next.estimated_minutes = normal + Number(liveMinutes) + eventImpact + extra;
+    } else {
+        next.live_traffic_minutes = null;
+        next.live_traffic_available = false;
+    }
+    return next;
 }
 
 function minutesOf(hhmm) {
