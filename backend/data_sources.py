@@ -130,6 +130,21 @@ def get_coordinates(location):
     return coords
 
 
+def _route_summary(route, index=0, include_geometry=False):
+    summary = {
+        "id": index,
+        "label": "Primary" if index == 0 else f"Alternative {index}",
+        "distance_miles": round(route["distance"] / 1609.344, 1),
+        "duration_minutes": round(route["duration"] / 60),
+    }
+    geometry = route.get("geometry")
+    if include_geometry and isinstance(geometry, dict) and geometry.get("coordinates"):
+        summary["geometry"] = [
+            [coord[1], coord[0]] for coord in geometry["coordinates"]
+        ]
+    return summary
+
+
 def get_route(start, destination):
     start_coords = get_coordinates(start)
     destination_coords = get_coordinates(destination)
@@ -149,6 +164,39 @@ def get_route(start, destination):
         "duration_minutes": round(route["duration"] / 60),
         "start": start_coords,
         "destination": destination_coords,
+    }
+
+
+def get_routes(start, destination):
+    start_coords = get_coordinates(start)
+    destination_coords = get_coordinates(destination)
+    url = (
+        f"{OSRM_BASE}/"
+        f"{start_coords['longitude']},{start_coords['latitude']};"
+        f"{destination_coords['longitude']},{destination_coords['latitude']}"
+    )
+    response = requests.get(
+        url,
+        params={
+            "overview": "full",
+            "geometries": "geojson",
+            "alternatives": "true",
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    data = response.json()
+    if data.get("code") != "Ok" or not data.get("routes"):
+        raise ValueError("No driving route found.")
+    routes = [
+        _route_summary(route, index, include_geometry=True)
+        for index, route in enumerate(data["routes"][:3])
+    ]
+    return {
+        "start": start_coords,
+        "destination": destination_coords,
+        "routes": routes,
+        "alternative_count": max(0, len(routes) - 1),
     }
 
 
@@ -176,6 +224,8 @@ def get_parking_options(start_location, parking_options=None):
                 "transfer_minutes": parking["transfer_minutes"],
                 "total_access_minutes": total_minutes,
                 "availability": AVAILABILITY_LABEL,
+                "latitude": route["destination"]["latitude"],
+                "longitude": route["destination"]["longitude"],
             })
         except (requests.RequestException, ValueError):
             options.append({
@@ -186,6 +236,8 @@ def get_parking_options(start_location, parking_options=None):
                 "transfer_minutes": parking["transfer_minutes"],
                 "total_access_minutes": None,
                 "availability": AVAILABILITY_LABEL,
+                "latitude": None,
+                "longitude": None,
             })
     return options
 
