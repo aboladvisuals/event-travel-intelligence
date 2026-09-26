@@ -70,6 +70,10 @@ INTERNATIONAL_HINTS = (
     "florida",
 )
 
+UK_QUERY_ALIASES = {
+    "southhampton": "Southampton",
+}
+
 
 def _nominatim_get(params):
     global _LAST_NOMINATIM_CALL
@@ -105,20 +109,51 @@ def _normalise_location(location):
 
 
 def _looks_explicitly_international(location):
-    text = " " + _normalise_location(location) + " "
-    if any(" " + hint + " " in text or text.endswith(" " + hint + " ") for hint in UK_HINTS):
-        return False
     compact = _normalise_location(location)
     if any(hint in compact for hint in UK_HINTS):
         return False
     return any(hint in compact for hint in INTERNATIONAL_HINTS)
 
 
-def _search_nominatim(location, countrycodes=None):
+def _is_uk_result(item):
+    name = (item.get("display_name") or "").lower()
+    return any(
+        token in name
+        for token in (
+            "united kingdom",
+            "england",
+            "scotland",
+            "wales",
+            "northern ireland",
+        )
+    )
+
+
+def _uk_query_variants(location):
+    variants = [location]
+    compact = _normalise_location(location)
+    alias = UK_QUERY_ALIASES.get(compact)
+    if alias:
+        variants.append(alias)
+    if not any(hint in compact for hint in ("uk", "united kingdom", "england")):
+        variants.append(f"{location}, UK")
+        if alias:
+            variants.append(f"{alias}, UK")
+    seen = set()
+    unique = []
+    for item in variants:
+        key = _normalise_location(item)
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique
+
+
+def _search_nominatim(location, countrycodes=None, limit=1):
     params = {
         "q": location,
         "format": "json",
-        "limit": 1,
+        "limit": limit,
         "addressdetails": 0,
     }
     if countrycodes:
@@ -134,10 +169,15 @@ def get_coordinates(location):
 
     results = []
     if not _looks_explicitly_international(location):
-        results = _search_nominatim(location, countrycodes="gb")
+        for variant in _uk_query_variants(location):
+            results = _search_nominatim(variant, countrycodes="gb")
+            if results:
+                break
 
     if not results:
-        results = _search_nominatim(location)
+        fallback = _search_nominatim(location, limit=5)
+        uk_matches = [item for item in fallback if _is_uk_result(item)]
+        results = uk_matches or fallback
 
     if not results:
         raise ValueError(f"Location not found: {location}")
