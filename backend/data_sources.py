@@ -209,7 +209,9 @@ PARK_AND_RIDE = [
 AVAILABILITY_LABEL = "Unknown / No live occupancy feed"
 
 
-def get_parking_options(start_location, parking_options=None):
+def get_parking_options(start_location, parking_options=None, live_feed=None):
+    from backend.parking_intelligence import enrich_parking_sites
+
     options = []
     sites = parking_options or PARK_AND_RIDE
     for parking in sites:
@@ -239,7 +241,7 @@ def get_parking_options(start_location, parking_options=None):
                 "latitude": None,
                 "longitude": None,
             })
-    return options
+    return enrich_parking_sites(options, live_feed=live_feed)
 
 
 def get_tfgm_road_conditions():
