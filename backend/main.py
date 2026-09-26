@@ -1,23 +1,28 @@
 from datetime import datetime
-from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
 from backend.data_sources import (
     get_parking_options,
     get_route,
     get_tfgm_road_conditions,
 )
-from backend.event_config import EVENT
+from backend.event_model import JourneyRequest
+from backend.event_store import (
+    DEFAULT_EVENT_ID,
+    event_to_public,
+    get_default_event,
+    get_event,
+    list_events,
+)
 from backend.travel_engine import calculate_crowd_risk, calculate_journey
 
 
 app = FastAPI(
     title="Event Travel Intelligence API",
     description="Travel intelligence for major events.",
-    version="1.0.1",
+    version="1.1.0",
 )
 
 app.add_middleware(
@@ -36,60 +41,76 @@ app.add_middleware(
 )
 
 
-class JourneyRequest(BaseModel):
-    start_location: str = Field(..., min_length=1)
-    departure_time: str
-    return_time: str
-    destination: Optional[str] = None
-    event_capacity: Optional[int] = None
-
-
 @app.get("/")
 def root():
+    event = get_default_event()
     return {
         "name": "Event Travel Intelligence API",
         "status": "online",
-        "version": "1.0.1",
-        "event": EVENT["name"],
-        "venue": EVENT["venue"],
+        "version": "1.1.0",
+        "event": event.name,
+        "venue": event.venue,
+        "default_event_id": event.event_id,
     }
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy"
-    }
+    return {"status": "healthy"}
+
+
+@app.get("/events")
+def events():
+    return [
+        {
+            "event_id": event.event_id,
+            "name": event.name,
+            "venue": event.venue,
+            "city": event.city,
+            "date": event.date,
+            "fictional": event.fictional,
+        }
+        for event in list_events()
+    ]
+
+
+@app.get("/events/{event_id}")
+def event_by_id(event_id: str):
+    try:
+        return event_to_public(get_event(event_id))
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
 
 
 @app.get("/event")
-def get_event():
-    return EVENT
+def get_current_event():
+    return event_to_public(get_default_event())
 
 
 @app.post("/analyze")
 def analyze_journey(request: JourneyRequest):
     try:
-        departure_time = datetime.strptime(
-            request.departure_time,
-            "%H:%M",
-        )
-        return_time = datetime.strptime(
-            request.return_time,
-            "%H:%M",
-        )
+        departure_time = datetime.strptime(request.departure_time, "%H:%M")
+        return_time = datetime.strptime(request.return_time, "%H:%M")
 
         start_location = request.start_location.strip()
         if not start_location:
             raise ValueError("A starting location is required.")
 
-        destination = EVENT["destination"]
+        try:
+            event = get_event(request.event_id or DEFAULT_EVENT_ID)
+        except KeyError as error:
+            raise ValueError(str(error))
+
+        public_event = event_to_public(event)
+        destination = event.destination
 
         outbound_route = get_route(start_location, destination)
         outbound = calculate_journey(
             normal_minutes=outbound_route["duration_minutes"],
             departure_time=departure_time,
             direction="outbound",
+            event=public_event,
         )
 
         return_route = get_route(destination, start_location)
@@ -97,28 +118,25 @@ def analyze_journey(request: JourneyRequest):
             normal_minutes=return_route["duration_minutes"],
             departure_time=return_time,
             direction="return",
+            event=public_event,
         )
 
         crowd = calculate_crowd_risk(
-            event_capacity=EVENT["capacity"],
+            event_capacity=event.capacity,
             departure_time=departure_time,
+            event=public_event,
         )
 
-        parking = get_parking_options(start_location)
+        parking = get_parking_options(
+            start_location,
+            parking_options=public_event["parking_options"],
+        )
         road_conditions = get_tfgm_road_conditions()
 
         return {
-            "event": {
-                "name": EVENT["name"],
-                "venue": EVENT["venue"],
-                "city": EVENT["city"],
-                "date": EVENT["date"],
-                "capacity": EVENT["capacity"],
-                "destination": destination,
-                "traffic_management": EVENT["traffic_management"],
-                "verified_disruptions": EVENT["verified_disruptions"],
-            },
+            "event": public_event,
             "request": {
+                "event_id": event.event_id,
                 "start_location": start_location,
                 "resolved_start": outbound_route["start"]["display_name"],
                 "departure_time": request.departure_time,
@@ -155,11 +173,7 @@ def analyze_journey(request: JourneyRequest):
         }
 
     except ValueError as error:
-        raise HTTPException(
-            status_code=400,
-            detail=str(error),
-        )
-
+        raise HTTPException(status_code=400, detail=str(error))
     except Exception as error:
         raise HTTPException(
             status_code=500,
