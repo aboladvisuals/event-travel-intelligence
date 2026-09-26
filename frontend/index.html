@@ -22,9 +22,8 @@
             disruption and parking intelligence.
         </p>
 
-        <p class="event-meta">
-            Powered by routing data, event configuration and
-            verified transport information.
+        <p class="event-meta" id="eventMeta">
+            Loading destination and event information from the public API…
         </p>
     </div>
 </header>
@@ -46,8 +45,9 @@
                     <input
                         id="startLocation"
                         type="text"
-                        placeholder="e.g. Hull"
-                        value="Hull"
+                        placeholder="Any place, e.g. Hull, Leeds, Liverpool, Birmingham, London"
+                        value=""
+                        autocomplete="address-level2"
                     >
                 </div>
 
@@ -99,6 +99,7 @@
             </button>
 
             <p id="status" class="status"></p>
+            <p class="note">Enter any reasonable starting location. The backend geocodes the input and routes it to the event destination. Journey times are event-adjusted estimates, not live traffic speeds.</p>
 
         </section>
 
@@ -172,6 +173,15 @@
 
             </div>
 
+
+            <div class="card">
+
+                <h3>Transport information</h3>
+
+                <div id="transportDetails"></div>
+
+            </div>
+
         </section>
 
     </main>
@@ -179,7 +189,7 @@
 
     <footer>
         <div class="container">
-            Event Travel Intelligence
+            Event Travel Intelligence · Estimates are modelled, not live traffic measurements · Parking occupancy is not a live feed
         </div>
     </footer>
 
