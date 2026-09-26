@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Event Travel Intelligence</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header class="hero">
+    <div class="container">
+        <p class="eyebrow">EVENT TRAVEL INTELLIGENCE</p>
+
+        <h1 id="eventName">Loading event...</h1>
+
+        <p class="subtitle">
+            Plan your journey with route, event traffic,
+            disruption and parking intelligence.
+        </p>
+
+        <p class="event-meta">
+            Powered by routing data, event configuration and
+            verified transport information.
+        </p>
+    </div>
+</header>
+
+
+    <main class="container">
+
+        <section class="card">
+
+            <h2>Plan Your Journey</h2>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="startLocation">
+                        Starting location
+                    </label>
+
+                    <input
+                        id="startLocation"
+                        type="text"
+                        placeholder="e.g. Hull"
+                        value="Hull"
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="destination">
+                        Event / destination
+                    </label>
+
+                    <input
+    id="destination"
+    type="text"
+    placeholder="Loading event..."
+    readonly
+>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="departureTime">
+                        Departure time
+                    </label>
+
+                    <input
+                        id="departureTime"
+                        type="time"
+                        value="08:00"
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="returnTime">
+                        Return departure
+                    </label>
+
+                    <input
+                        id="returnTime"
+                        type="time"
+                        value="20:30"
+                    >
+                </div>
+
+            </div>
+
+
+            <button id="analyzeButton">
+                Analyze Journey
+            </button>
+
+            <p id="status" class="status"></p>
+
+        </section>
+
+
+        <section id="results" class="results hidden">
+            <div class="card">
+    <h3>Verified Event & Road Disruptions</h3>
+    <div id="disruptionDetails"></div>
+</div>
+
+            <h2>Journey Analysis</h2>
+
+
+            <div class="summary-grid">
+
+                <div class="metric-card">
+                    <span>Outbound distance</span>
+                    <strong id="outboundDistance">—</strong>
+                </div>
+
+                <div class="metric-card">
+                    <span>Estimated outbound</span>
+                    <strong id="outboundTime">—</strong>
+                </div>
+
+                <div class="metric-card">
+                    <span>Arrival</span>
+                    <strong id="arrivalTime">—</strong>
+                </div>
+
+                <div class="metric-card">
+                    <span>Travel risk</span>
+                    <strong id="outboundRisk">—</strong>
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>Outbound Journey</h3>
+
+                <div id="outboundDetails"></div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>Event Crowd Risk</h3>
+
+                <div id="crowdDetails"></div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>Return Journey</h3>
+
+                <div id="returnDetails"></div>
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>Parking & Park-and-Ride</h3>
+
+                <div id="parkingDetails"></div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+        <div class="container">
+            Event Travel Intelligence
+        </div>
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
