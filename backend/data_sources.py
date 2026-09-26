@@ -14,6 +14,62 @@ USER_AGENT = (
 _GEOCODE_CACHE = {}
 _LAST_NOMINATIM_CALL = 0.0
 
+UK_HINTS = (
+    "uk",
+    "u.k.",
+    "united kingdom",
+    "great britain",
+    "england",
+    "scotland",
+    "wales",
+    "northern ireland",
+    "gb",
+)
+
+INTERNATIONAL_HINTS = (
+    "united states",
+    "usa",
+    "u.s.a",
+    "u.s.",
+    "america",
+    "canada",
+    "australia",
+    "new zealand",
+    "ireland",
+    "france",
+    "germany",
+    "spain",
+    "italy",
+    "portugal",
+    "netherlands",
+    "belgium",
+    "switzerland",
+    "austria",
+    "sweden",
+    "norway",
+    "denmark",
+    "poland",
+    "india",
+    "pakistan",
+    "nigeria",
+    "ghana",
+    "kenya",
+    "south africa",
+    "japan",
+    "china",
+    "singapore",
+    "uae",
+    "dubai",
+    "qatar",
+    "brazil",
+    "mexico",
+    "virginia",
+    "california",
+    "texas",
+    "new york",
+    "florida",
+)
+
 
 def _nominatim_get(params):
     global _LAST_NOMINATIM_CALL
@@ -44,20 +100,44 @@ def _nominatim_get(params):
     raise last_error
 
 
-def get_coordinates(location):
-    key = " ".join(location.strip().lower().split())
-    if key in _GEOCODE_CACHE:
-        return _GEOCODE_CACHE[key]
+def _normalise_location(location):
+    return " ".join(location.strip().lower().split())
 
+
+def _looks_explicitly_international(location):
+    text = " " + _normalise_location(location) + " "
+    if any(" " + hint + " " in text or text.endswith(" " + hint + " ") for hint in UK_HINTS):
+        return False
+    compact = _normalise_location(location)
+    if any(hint in compact for hint in UK_HINTS):
+        return False
+    return any(hint in compact for hint in INTERNATIONAL_HINTS)
+
+
+def _search_nominatim(location, countrycodes=None):
     params = {
         "q": location,
         "format": "json",
         "limit": 1,
         "addressdetails": 0,
     }
-
+    if countrycodes:
+        params["countrycodes"] = countrycodes
     response = _nominatim_get(params)
-    results = response.json()
+    return response.json()
+
+
+def get_coordinates(location):
+    key = _normalise_location(location)
+    if key in _GEOCODE_CACHE:
+        return _GEOCODE_CACHE[key]
+
+    results = []
+    if not _looks_explicitly_international(location):
+        results = _search_nominatim(location, countrycodes="gb")
+
+    if not results:
+        results = _search_nominatim(location)
 
     if not results:
         raise ValueError(f"Location not found: {location}")
