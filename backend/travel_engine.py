@@ -1,21 +1,44 @@
 from datetime import datetime, timedelta
 
-from backend.event_config import EVENT
+
+def _as_minutes(value, default_minutes):
+    if not value:
+        return default_minutes
+    if isinstance(value, int):
+        return value
+    parts = str(value).split(":")
+    return int(parts[0]) * 60 + int(parts[1])
 
 
-def get_outbound_scenario(departure_time):
-    """
-    Estimate outbound journey conditions using the configured event timing.
-    """
-
-    minutes = departure_time.hour * 60 + departure_time.minute
-
-    traffic_start = (
-        int(EVENT["traffic_management"]["start"][:2]) * 60
-        + int(EVENT["traffic_management"]["start"][3:])
+def _event_windows(event):
+    event = event or {}
+    traffic = event.get("traffic_management") or {}
+    traffic_start = _as_minutes(
+        event.get("traffic_management_start") or traffic.get("start"),
+        11 * 60 + 30,
     )
+    traffic_end = _as_minutes(
+        event.get("traffic_management_end") or traffic.get("end"),
+        21 * 60,
+    )
+    start_time = _as_minutes(event.get("start_time"), traffic_start)
+    early_cutoff = min(start_time, traffic_start)
+    if early_cutoff > 9 * 60:
+        early_cutoff = max(9 * 60, traffic_start - 150)
+    main_until = max(traffic_end - 60, traffic_start)
+    return {
+        "early_cutoff": early_cutoff,
+        "traffic_start": traffic_start,
+        "main_until": main_until,
+        "traffic_end": traffic_end,
+    }
 
-    if minutes < 9 * 60:
+
+def get_outbound_scenario(departure_time, event=None):
+    minutes = departure_time.hour * 60 + departure_time.minute
+    windows = _event_windows(event)
+
+    if minutes < windows["early_cutoff"]:
         return {
             "factor": 1.00,
             "extra_delay": 0,
@@ -23,7 +46,7 @@ def get_outbound_scenario(departure_time):
             "label": "Normal / early departure",
         }
 
-    if minutes < traffic_start:
+    if minutes < windows["traffic_start"]:
         return {
             "factor": 1.15,
             "extra_delay": 0,
@@ -31,7 +54,7 @@ def get_outbound_scenario(departure_time):
             "label": "Event build-up",
         }
 
-    if minutes < 20 * 60:
+    if minutes < windows["main_until"]:
         return {
             "factor": 1.35,
             "extra_delay": 0,
@@ -47,14 +70,12 @@ def get_outbound_scenario(departure_time):
     }
 
 
-def get_return_scenario(return_time):
-    """
-    Estimate return journey conditions after the event.
-    """
-
+def get_return_scenario(return_time, event=None):
     minutes = return_time.hour * 60 + return_time.minute
+    windows = _event_windows(event)
+    traffic_end = windows["traffic_end"]
 
-    if minutes < 20 * 60:
+    if minutes < traffic_end - 60:
         return {
             "factor": 1.35,
             "extra_delay": 50,
@@ -62,7 +83,7 @@ def get_return_scenario(return_time):
             "label": "Event still active",
         }
 
-    if minutes < 21 * 60:
+    if minutes < traffic_end:
         return {
             "factor": 1.50,
             "extra_delay": 60,
@@ -70,7 +91,7 @@ def get_return_scenario(return_time):
             "label": "Peak event dispersal",
         }
 
-    if minutes < 22 * 60:
+    if minutes < traffic_end + 60:
         return {
             "factor": 1.35,
             "extra_delay": 50,
@@ -78,7 +99,7 @@ def get_return_scenario(return_time):
             "label": "Heavy post-event traffic",
         }
 
-    if minutes < 23 * 60:
+    if minutes < traffic_end + 120:
         return {
             "factor": 1.20,
             "extra_delay": 30,
@@ -97,9 +118,7 @@ def get_return_scenario(return_time):
 def format_arrival(departure_time, estimated_minutes):
     arrival_time = departure_time + timedelta(minutes=estimated_minutes)
     clock = arrival_time.strftime("%H:%M")
-    days = (
-        arrival_time.date() - departure_time.date()
-    ).days
+    days = (arrival_time.date() - departure_time.date()).days
     if days <= 0:
         return clock
     if days == 1:
@@ -111,15 +130,12 @@ def calculate_journey(
     normal_minutes,
     departure_time,
     direction="outbound",
+    event=None,
 ):
-    """
-    Convert a normal routing time into an event-adjusted estimate.
-    """
-
     if direction == "outbound":
-        scenario = get_outbound_scenario(departure_time)
+        scenario = get_outbound_scenario(departure_time, event)
     else:
-        scenario = get_return_scenario(departure_time)
+        scenario = get_return_scenario(departure_time, event)
 
     estimated_minutes = round(
         normal_minutes * scenario["factor"] + scenario["extra_delay"]
@@ -137,12 +153,9 @@ def calculate_journey(
     }
 
 
-def calculate_crowd_risk(event_capacity, departure_time):
-    """
-    Estimate crowd/congestion risk around the event.
-    """
-
+def calculate_crowd_risk(event_capacity, departure_time, event=None):
     minutes = departure_time.hour * 60 + departure_time.minute
+    windows = _event_windows(event)
 
     score = 0
     reasons = []
@@ -151,14 +164,12 @@ def calculate_crowd_risk(event_capacity, departure_time):
         score += 3
         reasons.append("Large event capacity")
 
-    if 11 * 60 + 30 <= minutes <= 21 * 60:
+    if windows["traffic_start"] <= minutes <= windows["traffic_end"]:
         score += 3
         reasons.append("Main event traffic-management period")
-
-    elif 9 * 60 <= minutes < 11 * 60 + 30:
+    elif windows["early_cutoff"] <= minutes < windows["traffic_start"]:
         score += 2
         reasons.append("Event build-up period")
-
     else:
         reasons.append("Outside main event traffic-management period")
 
