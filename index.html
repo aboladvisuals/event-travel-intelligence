@@ -58,13 +58,17 @@
             </div>
             <button id="analyzeButton">Analyse Journey</button>
             <p id="status" class="status" role="status"></p>
-            <p class="note">Enter any reasonable starting location. Journey times are event-adjusted estimates, not live traffic speeds.</p>
+            <p class="note">Enter any reasonable starting location. Normal route time, event model and live traffic are shown separately. Live speeds are only used when a licensed feed is available.</p>
         </section>
 
         <section id="results" class="results hidden">
             <div class="card">
-                <h3>Verified Event & Road Disruptions</h3>
+                <h3>Verified Event &amp; Road Disruptions</h3>
                 <div id="disruptionDetails"></div>
+            </div>
+            <div class="card">
+                <h3>Live Transport Information</h3>
+                <div id="liveTransportDetails"></div>
             </div>
             <h2>Journey Analysis</h2>
             <div class="card">
@@ -80,7 +84,7 @@
             <div class="card">
                 <h3>Route map</h3>
                 <div id="journeyMap" class="journey-map" role="img" aria-label="Map of the selected journey"></div>
-                <p class="note">Routes are OSRM driving geometries. Times on the map are event-adjusted estimates, not live traffic speeds.</p>
+                <p class="note">Routes are OSRM driving geometries. Live traffic is shown separately from the map times when a measured source is available.</p>
             </div>
             <div class="card">
                 <h3>Route comparison</h3>
@@ -95,7 +99,7 @@
     </main>
 
     <footer>
-        <div class="container">Event Travel Intelligence · Estimates are modelled, not live traffic measurements · Parking occupancy is not a live feed</div>
+        <div class="container">Event Travel Intelligence · Normal OSRM time, event model and live traffic are shown separately · Parking occupancy is not a live feed</div>
     </footer>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="script-engine.js"></script>
