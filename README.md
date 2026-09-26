@@ -44,6 +44,17 @@ Users do not need to know event IDs. They can search or browse configured events
 - Selecting an event loads `GET /events/{event_id}` and that event controls destination, traffic windows, disruptions, parking and `/analyze`.
 - The fictional Manchester test event stays labelled development-only.
 
+## Journey Intelligence
+
+After an event is selected, journey analysis shows more than a single time.
+
+- OSRM is asked for alternative driving routes and full geometry when the public router returns them. Alternatives are never invented.
+- Each route lists distance, normal duration and event-adjusted duration.
+- The time breakdown is `normal + event adjustment + additional event delay = estimated`.
+- A Leaflet map (OpenStreetMap tiles, no API key) plots origin, destination, outbound route geometry and Park & Ride sites when coordinates are available.
+- The journey summary covers outbound distance, estimated time, arrival, risk and event condition, plus return estimated time, arrival, risk and day rollover.
+- Results remain estimates, not live traffic speeds.
+
 ## Problem being solved
 
 Large events create congestion, road restrictions and uncertain parking. People leaving from different towns need a single place to:
@@ -70,14 +81,16 @@ Browser (GitHub Pages)
         -> FastAPI on Render
             -> Event store
             -> Nominatim geocoding (UK-biased)
-            -> OSRM driving routes
+            -> OSRM driving routes (alternatives + GeoJSON when available)
             -> Event-configured timing, disruptions and parking
+            -> Journey breakdown, route comparison and map payload
 ```
 
 - **Frontend**: static HTML, CSS and JavaScript on GitHub Pages.
 - **Backend**: FastAPI (`backend/main.py`) deployed on Render.
 - **Nominatim**: geocodes any user-supplied origin (and parking sites) to coordinates. Ambiguous UK names prefer `countrycodes=gb`.
-- **OSRM**: public driving router used for a *normal* route distance and duration.
+- **OSRM**: public driving router used for a *normal* route distance and duration. Journey analysis requests `alternatives=true` and GeoJSON geometry when available; alternatives are never invented.
+- **Leaflet map**: OpenStreetMap tiles on the results page show origin, destination, outbound route geometry and Park & Ride markers. No mapping API key is required.
 - **Event intelligence**: selected event venue, date, capacity and traffic-management window.
 - **Disruption intelligence**: verified records stored on the event, attributed to TfGM for the production event.
 - **Park & Ride intelligence**: options configured on the selected event. Drive time from the origin plus a configured transfer time.
@@ -100,7 +113,7 @@ The original Pages failure (`Loading event...`) was caused by the browser blocki
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` | Service name, status, default event and version `1.2.0` |
+| GET | `/` | Service name, status, default event and version `1.3.0` |
 | GET | `/health` | Health check |
 | GET | `/events` | Available events (`from` / `to` date filters optional) |
 | GET | `/events/search` | Search events by name, venue, city or country |
@@ -130,6 +143,7 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 python tests/test_event_engine.py
 python tests/test_event_discovery.py
+python tests/test_journey_intelligence.py
 ```
 
 Open the repository-root GitHub Pages files (`index.html`, `style.css`, `script.js`) or `frontend/index.html` with a local static server.
@@ -141,7 +155,7 @@ The frontend calls the public Render API by default:
 ## Deployment
 
 - Backend: Render web service from this repository, command typically `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
-- After pushing backend changes, trigger a Render deploy if auto-deploy is off. The live API should report version `1.2.0` and send `Access-Control-Allow-Origin` for `https://aboladvisuals.github.io`.
+- After pushing backend changes, trigger a Render deploy if auto-deploy is off. The live API should report version `1.3.0` and send `Access-Control-Allow-Origin` for `https://aboladvisuals.github.io`.
 - Frontend: GitHub Pages from the repository root so `/event-travel-intelligence/` serves `index.html`.
 - CORS is configured in `backend/main.py` for `https://aboladvisuals.github.io` and other `*.github.io` origins.
 
@@ -151,7 +165,6 @@ Do not commit `.env` files, secrets or API keys.
 
 Deferred to later phases:
 
-- Maps
 - A reliable live parking-occupancy source, clearly labelled as live only if the feed is real
 - Official TfGM / National Highways structured disruption APIs
 - A measured traffic source if one is licensed
