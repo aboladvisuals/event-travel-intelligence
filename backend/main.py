@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.data_sources import (
     get_parking_options,
-    get_route,
+    get_routes,
     get_tfgm_road_conditions,
 )
 from backend.event_model import JourneyRequest
@@ -25,7 +25,7 @@ from backend.travel_engine import calculate_crowd_risk, calculate_journey
 app = FastAPI(
     title="Event Travel Intelligence API",
     description="Travel intelligence for major events.",
-    version="1.2.0",
+    version="1.3.0",
 )
 
 app.add_middleware(
@@ -50,7 +50,7 @@ def root():
     return {
         "name": "Event Travel Intelligence API",
         "status": "online",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "event": event.name,
         "venue": event.venue,
         "default_event_id": event.event_id,
@@ -110,21 +110,57 @@ def analyze_journey(request: JourneyRequest):
         public_event = event_to_public(event)
         destination = event.destination
 
-        outbound_route = get_route(start_location, destination)
+        outbound_bundle = get_routes(start_location, destination)
+        outbound_primary = outbound_bundle["routes"][0]
         outbound = calculate_journey(
-            normal_minutes=outbound_route["duration_minutes"],
+            normal_minutes=outbound_primary["duration_minutes"],
             departure_time=departure_time,
             direction="outbound",
             event=public_event,
         )
+        outbound_options = []
+        for option in outbound_bundle["routes"]:
+            adjusted = calculate_journey(
+                normal_minutes=option["duration_minutes"],
+                departure_time=departure_time,
+                direction="outbound",
+                event=public_event,
+            )
+            outbound_options.append({
+                "id": option["id"],
+                "label": option["label"],
+                "distance_miles": option["distance_miles"],
+                "normal_minutes": adjusted["normal_minutes"],
+                "estimated_minutes": adjusted["estimated_minutes"],
+                "breakdown": adjusted["breakdown"],
+                "geometry": option.get("geometry") or [],
+            })
 
-        return_route = get_route(destination, start_location)
+        return_bundle = get_routes(destination, start_location)
+        return_primary = return_bundle["routes"][0]
         return_journey = calculate_journey(
-            normal_minutes=return_route["duration_minutes"],
+            normal_minutes=return_primary["duration_minutes"],
             departure_time=return_time,
             direction="return",
             event=public_event,
         )
+        return_options = []
+        for option in return_bundle["routes"]:
+            adjusted = calculate_journey(
+                normal_minutes=option["duration_minutes"],
+                departure_time=return_time,
+                direction="return",
+                event=public_event,
+            )
+            return_options.append({
+                "id": option["id"],
+                "label": option["label"],
+                "distance_miles": option["distance_miles"],
+                "normal_minutes": adjusted["normal_minutes"],
+                "estimated_minutes": adjusted["estimated_minutes"],
+                "breakdown": adjusted["breakdown"],
+                "geometry": option.get("geometry") or [],
+            })
 
         crowd = calculate_crowd_risk(
             event_capacity=event.capacity,
@@ -143,7 +179,7 @@ def analyze_journey(request: JourneyRequest):
             "request": {
                 "event_id": event.event_id,
                 "start_location": start_location,
-                "resolved_start": outbound_route["start"]["display_name"],
+                "resolved_start": outbound_bundle["start"]["display_name"],
                 "departure_time": request.departure_time,
                 "return_time": request.return_time,
             },
@@ -156,12 +192,21 @@ def analyze_journey(request: JourneyRequest):
                 "Parking availability is currently not live occupancy data."
             ),
             "outbound": {
-                "distance_miles": outbound_route["distance_miles"],
+                "distance_miles": outbound_primary["distance_miles"],
+                "routes": outbound_options,
                 **outbound,
             },
             "return": {
-                "distance_miles": return_route["distance_miles"],
+                "distance_miles": return_primary["distance_miles"],
+                "routes": return_options,
                 **return_journey,
+            },
+            "map": {
+                "start": outbound_bundle["start"],
+                "destination": outbound_bundle["destination"],
+                "outbound_routes": outbound_options,
+                "return_routes": return_options,
+                "parking": parking,
             },
             "crowd": crowd,
             "parking": parking,
