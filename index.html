@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Travel Intelligence</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -66,11 +67,24 @@
                 <div id="disruptionDetails"></div>
             </div>
             <h2>Journey Analysis</h2>
+            <div class="card">
+                <h3>Journey summary</h3>
+                <div id="journeySummary"></div>
+            </div>
             <div class="summary-grid">
                 <div class="metric-card"><span>Outbound distance</span><strong id="outboundDistance">—</strong></div>
                 <div class="metric-card"><span>Estimated outbound</span><strong id="outboundTime">—</strong></div>
                 <div class="metric-card"><span>Arrival</span><strong id="arrivalTime">—</strong></div>
                 <div class="metric-card"><span>Travel risk</span><strong id="outboundRisk">—</strong></div>
+            </div>
+            <div class="card">
+                <h3>Route map</h3>
+                <div id="journeyMap" class="journey-map" role="img" aria-label="Map of the selected journey"></div>
+                <p class="note">Routes are OSRM driving geometries. Times on the map are event-adjusted estimates, not live traffic speeds.</p>
+            </div>
+            <div class="card">
+                <h3>Route comparison</h3>
+                <div id="routeComparison"></div>
             </div>
             <div class="card"><h3>Outbound Journey</h3><div id="outboundDetails"></div></div>
             <div class="card"><h3>Event Crowd Risk</h3><div id="crowdDetails"></div></div>
@@ -83,6 +97,7 @@
     <footer>
         <div class="container">Event Travel Intelligence · Estimates are modelled, not live traffic measurements · Parking occupancy is not a live feed</div>
     </footer>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="script-engine.js"></script>
     <script src="script-ui.js"></script>
     <script src="script.js"></script>
