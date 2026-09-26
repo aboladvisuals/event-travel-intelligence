@@ -14,14 +14,18 @@ function occupancyStateLabel(option) {
     return "Unavailable";
 }
 
-function displayParking(parkingOptions) {
+function displayParking(parkingOptions, liveParking) {
     var container = document.getElementById("parkingDetails");
     if (!container) return;
     if (!parkingOptions || !parkingOptions.length) {
         container.innerHTML = "<p>No parking options available for the selected event.</p>";
         return;
     }
-    container.innerHTML = note("Access time is drive plus transfer. Occupancy is shown only when an official feed returns a state for that facility.") + parkingOptions.map(function (option) {
+    liveParking = liveParking || {};
+    var feed = liveParking.feed || {};
+    var intro = note("Estimated access time is drive plus transfer. Live availability is shown only when an official feed matches that facility.");
+    var feedNote = liveParking.limitations || feed.note || "";
+    container.innerHTML = intro + (feedNote ? note(feedNote) : "") + parkingOptions.map(function (option) {
         var availability = option.availability || "Unknown / No live occupancy feed";
         var spaces = option.spaces_remaining != null
             ? row("Spaces remaining", String(option.spaces_remaining))
@@ -41,3 +45,12 @@ function displayParking(parkingOptions) {
             "</p></div>";
     }).join("");
 }
+
+(function () {
+    if (typeof displayResults !== "function") return;
+    var original = displayResults;
+    displayResults = function (data) {
+        original(data);
+        displayParking((data && data.parking) || [], (data && data.live_parking) || {});
+    };
+})();

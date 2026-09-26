@@ -74,6 +74,8 @@ def map_occupancy_state(raw):
         return "Limited"
     if compact in {"full", "closed", "no spaces", "full capacity"}:
         return "Full"
+    if compact in {"available", "limited", "full"}:
+        return text.title()
     if "full" in compact:
         return "Full"
     if "limited" in compact or "almost" in compact:
@@ -226,6 +228,13 @@ def attach_occupancy(site, occupancy):
     payload["live"] = bool(record.get("live"))
     payload["occupancy_status"] = record.get("status") or "unavailable"
     payload["occupancy_note"] = record.get("note")
+    if payload.get("latitude") is not None and payload.get("longitude") is not None:
+        payload["coordinates"] = {
+            "latitude": payload["latitude"],
+            "longitude": payload["longitude"],
+        }
+    elif "coordinates" not in payload:
+        payload["coordinates"] = None
     return payload
 
 
