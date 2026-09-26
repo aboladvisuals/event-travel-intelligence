@@ -8,42 +8,58 @@
 </head>
 <body>
     <header class="hero">
-    <div class="container">
-        <p class="eyebrow">EVENT TRAVEL INTELLIGENCE</p>
-        <h1 id="eventName">Loading event...</h1>
-        <p class="subtitle">Plan your journey with route, event traffic, disruption and parking intelligence.</p>
-        <p class="event-meta" id="eventMeta">Loading destination and event information from the public API…</p>
-    </div>
-</header>
+        <div class="container">
+            <p class="eyebrow">EVENT TRAVEL INTELLIGENCE</p>
+            <h1 id="eventName">Find your event</h1>
+            <p class="subtitle">Search available events, then plan your journey with route, event traffic, disruption and parking intelligence.</p>
+            <p class="event-meta" id="eventMeta">Search or browse events below. Selecting an event sets the destination for journey analysis.</p>
+        </div>
+    </header>
+
     <main class="container">
-        <section class="card">
-            <h2>Plan Your Journey</h2>
+        <section class="card" aria-labelledby="discoveryHeading">
+            <h2 id="discoveryHeading">Find your event</h2>
+            <div class="form-group">
+                <label for="eventSearch">Search events</label>
+                <input
+                    id="eventSearch"
+                    type="search"
+                    placeholder="Search events..."
+                    autocomplete="off"
+                    aria-describedby="eventSearchHint"
+                >
+                <p id="eventSearchHint" class="note">Search by event name, venue, city or country. Results come from the configured event store.</p>
+            </div>
+            <div id="eventResults" class="event-results" role="list"></div>
+            <p id="eventSearchStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="card" aria-labelledby="journeyHeading">
+            <h2 id="journeyHeading">Your journey</h2>
+            <div id="selectedEventBanner" class="selected-event-banner">No event selected yet. Choose an event above to continue.</div>
             <div class="form-grid">
-                <div class="form-group">
-                    <label for="eventSelect">Event</label>
-                    <select id="eventSelect"><option value="">Loading events...</option></select>
-                </div>
                 <div class="form-group">
                     <label for="startLocation">Starting location</label>
                     <input id="startLocation" type="text" placeholder="Any place, e.g. Hull, Leeds, Liverpool, Birmingham, London" value="" autocomplete="address-level2">
                 </div>
                 <div class="form-group">
                     <label for="destination">Event / destination</label>
-                    <input id="destination" type="text" placeholder="Loading event..." readonly>
+                    <input id="destination" type="text" placeholder="Select an event" readonly>
                 </div>
                 <div class="form-group">
-                    <label for="departureTime">Departure time</label>
+                    <label for="departureTime">Departure</label>
                     <input id="departureTime" type="time" value="08:00">
                 </div>
                 <div class="form-group">
-                    <label for="returnTime">Return departure</label>
+                    <label for="returnTime">Return</label>
                     <input id="returnTime" type="time" value="20:30">
                 </div>
             </div>
-            <button id="analyzeButton">Analyze Journey</button>
-            <p id="status" class="status"></p>
-            <p class="note">Enter any reasonable starting location. The backend geocodes the input and routes it to the event destination. Journey times are event-adjusted estimates, not live traffic speeds.</p>
+            <button id="analyzeButton">Analyse Journey</button>
+            <p id="status" class="status" role="status"></p>
+            <p class="note">Enter any reasonable starting location. Journey times are event-adjusted estimates, not live traffic speeds.</p>
         </section>
+
         <section id="results" class="results hidden">
             <div class="card">
                 <h3>Verified Event & Road Disruptions</h3>
@@ -63,6 +79,7 @@
             <div class="card"><h3>Transport information</h3><div id="transportDetails"></div></div>
         </section>
     </main>
+
     <footer>
         <div class="container">Event Travel Intelligence · Estimates are modelled, not live traffic measurements · Parking occupancy is not a live feed</div>
     </footer>
