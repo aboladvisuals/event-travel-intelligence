@@ -41,7 +41,10 @@ class EventSummary(BaseModel):
     name: str
     venue: str
     city: str
+    country: str = "United Kingdom"
     date: str
+    capacity: int = 0
+    destination: str = ""
     fictional: bool = False
 
 

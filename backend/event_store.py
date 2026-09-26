@@ -55,6 +55,45 @@ def get_default_event() -> Event:
     return get_event(DEFAULT_EVENT_ID)
 
 
+def event_to_summary(event: Event) -> dict:
+    return {
+        "event_id": event.event_id,
+        "name": event.name,
+        "venue": event.venue,
+        "city": event.city,
+        "country": event.country,
+        "date": event.date,
+        "capacity": event.capacity,
+        "destination": event.destination,
+        "fictional": event.fictional,
+    }
+
+
+def search_events(query: str = None, date_from: str = None, date_to: str = None):
+    events = list_events()
+    if date_from:
+        events = [event for event in events if event.date >= date_from]
+    if date_to:
+        events = [event for event in events if event.date <= date_to]
+    needle = (query or "").strip().lower()
+    if not needle:
+        return events
+    matches = []
+    for event in events:
+        haystack = " ".join(
+            [
+                event.name,
+                event.venue,
+                event.city,
+                event.country,
+                event.destination,
+            ]
+        ).lower()
+        if needle in haystack:
+            matches.append(event)
+    return matches
+
+
 def event_to_public(event: Event) -> dict:
     return {
         "event_id": event.event_id,
