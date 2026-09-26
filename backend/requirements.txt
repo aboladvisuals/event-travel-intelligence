@@ -9,6 +9,7 @@ fastapi==0.141.1
 geographiclib==2.1
 geopy==2.5.0
 h11==0.16.0
+httpx==0.28.1
 idna==3.20
 pydantic==2.13.5
 pydantic_core==2.46.5

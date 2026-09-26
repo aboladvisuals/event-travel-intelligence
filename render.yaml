@@ -6,3 +6,24 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+    envVars:
+      - key: APP_VERSION
+        value: "1.6.0"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEBUG_ERRORS
+        value: "false"
+      - key: DATABASE_PATH
+        value: /tmp/eti-platform.sqlite
+      - key: ALLOWED_ORIGINS
+        value: https://aboladvisuals.github.io
+      - key: PYTHONPATH
+        value: .
+      - key: TOMTOM_API_KEY
+        sync: false
+      - key: NATIONAL_HIGHWAYS_SUBSCRIPTION_KEY
+        sync: false
+      - key: TFGM_API_KEY
+        sync: false
+      - key: TFGM_APP_KEY
+        sync: false

@@ -49,9 +49,9 @@ class EventSummary(BaseModel):
 
 
 class JourneyRequest(BaseModel):
-    start_location: str = Field(..., min_length=1)
-    departure_time: str
-    return_time: str
-    event_id: Optional[str] = None
-    destination: Optional[str] = None
-    event_capacity: Optional[int] = None
+    start_location: str = Field(..., min_length=1, max_length=200)
+    departure_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    return_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    event_id: Optional[str] = Field(default=None, max_length=120)
+    destination: Optional[str] = Field(default=None, max_length=200)
+    event_capacity: Optional[int] = Field(default=None, ge=0, le=500000)

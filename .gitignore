@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+data/platform.sqlite
+data/platform.sqlite-*
+.pytest_cache/
