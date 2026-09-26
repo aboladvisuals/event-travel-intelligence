@@ -15,11 +15,6 @@ def get_outbound_scenario(departure_time):
         + int(EVENT["traffic_management"]["start"][3:])
     )
 
-    traffic_end = (
-        int(EVENT["traffic_management"]["end"][:2]) * 60
-        + int(EVENT["traffic_management"]["end"][3:])
-    )
-
     if minutes < 9 * 60:
         return {
             "factor": 1.00,
@@ -99,6 +94,19 @@ def get_return_scenario(return_time):
     }
 
 
+def format_arrival(departure_time, estimated_minutes):
+    arrival_time = departure_time + timedelta(minutes=estimated_minutes)
+    clock = arrival_time.strftime("%H:%M")
+    days = (
+        arrival_time.date() - departure_time.date()
+    ).days
+    if days <= 0:
+        return clock
+    if days == 1:
+        return f"{clock} (+1 day)"
+    return f"{clock} (+{days} days)"
+
+
 def calculate_journey(
     normal_minutes,
     departure_time,
@@ -117,8 +125,6 @@ def calculate_journey(
         normal_minutes * scenario["factor"] + scenario["extra_delay"]
     )
 
-    arrival_time = departure_time + timedelta(minutes=estimated_minutes)
-
     return {
         "normal_minutes": normal_minutes,
         "estimated_minutes": estimated_minutes,
@@ -127,7 +133,7 @@ def calculate_journey(
         "risk": scenario["risk"],
         "label": scenario["label"],
         "departure_time": departure_time.strftime("%H:%M"),
-        "arrival_time": arrival_time.strftime("%H:%M"),
+        "arrival_time": format_arrival(departure_time, estimated_minutes),
     }
 
 
