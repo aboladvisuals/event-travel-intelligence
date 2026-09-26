@@ -83,15 +83,18 @@ label {
     font-size: 0.9rem;
 }
 
-input {
+input,
+select {
     width: 100%;
     padding: 12px 14px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     font-size: 1rem;
+    background: white;
 }
 
-input:focus {
+input:focus,
+select:focus {
     outline: 2px solid #93c5fd;
     border-color: #2563eb;
 }
