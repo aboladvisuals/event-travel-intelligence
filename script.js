@@ -127,11 +127,35 @@ async function analyzeJourney() {
     }
 }
 
+function looksExplicitlyInternational(location) {
+    var compact = String(location || "").toLowerCase();
+    var ukHints = ["united kingdom", "great britain", "northern ireland", "england", "scotland", "wales", "u.k.", " uk", "uk ", "gb"];
+    var i;
+    for (i = 0; i < ukHints.length; i++) {
+        if (compact.indexOf(ukHints[i]) !== -1) return false;
+    }
+    var internationalHints = ["united states", "usa", "u.s.a", "u.s.", "america", "canada", "australia", "new zealand", "ireland", "france", "germany", "spain", "italy", "portugal", "netherlands", "belgium", "switzerland", "austria", "sweden", "norway", "denmark", "poland", "india", "pakistan", "nigeria", "ghana", "kenya", "south africa", "japan", "china", "singapore", "uae", "dubai", "qatar", "brazil", "mexico", "virginia", "california", "texas", "new york", "florida"];
+    for (i = 0; i < internationalHints.length; i++) {
+        if (compact.indexOf(internationalHints[i]) !== -1) return true;
+    }
+    return false;
+}
+
 async function geocode(location) {
-    var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(location);
-    var response = await fetchJson(url, {}, 20000);
-    if (!response.ok) throw new Error("Could not geocode " + location);
-    var results = await response.json();
+    async function search(extraQuery) {
+        var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(location) + extraQuery;
+        var response = await fetchJson(url, {}, 20000);
+        if (!response.ok) throw new Error("Could not geocode " + location);
+        return response.json();
+    }
+
+    var results = [];
+    if (!looksExplicitlyInternational(location)) {
+        results = await search("&countrycodes=gb");
+    }
+    if (!results || !results.length) {
+        results = await search("");
+    }
     if (!results.length) throw new Error("Location not found: " + location);
     return {
         latitude: parseFloat(results[0].lat),
@@ -159,15 +183,29 @@ async function routeBetween(start, dest) {
 }
 
 function minutesOf(hhmm) {
-    var parts = hhmm.split(":");
+    var parts = String(hhmm || "00:00").split(":");
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
 }
 
-function addMinutes(hhmm, extra) {
-    var total = minutesOf(hhmm) + extra;
-    var hours = Math.floor(total / 60) % 24;
-    var mins = total % 60;
-    return String(hours).padStart(2, "0") + ":" + String(mins).padStart(2, "0");
+function formatArrivalClock(hhmm, extraMinutes) {
+    var total = minutesOf(hhmm) + Number(extraMinutes || 0);
+    if (!isFinite(total)) return hhmm || "-";
+    var days = Math.floor(total / (24 * 60));
+    var remain = total % (24 * 60);
+    var hours = Math.floor(remain / 60);
+    var mins = remain % 60;
+    var clock = String(hours).padStart(2, "0") + ":" + String(mins).padStart(2, "0");
+    if (days <= 0) return clock;
+    if (days === 1) return clock + " (+1 day)";
+    return clock + " (+" + days + " days)";
+}
+
+function formatArrivalValue(journey) {
+    if (!journey) return "-";
+    if (journey.departure_time != null && journey.estimated_minutes != null) {
+        return formatArrivalClock(journey.departure_time, journey.estimated_minutes);
+    }
+    return journey.arrival_time || "-";
 }
 
 function outboundScenario(departureTime) {
@@ -197,7 +235,7 @@ function applyScenario(normalMinutes, time, scenario) {
         risk: scenario.risk,
         label: scenario.label,
         departure_time: time,
-        arrival_time: addMinutes(time, estimated)
+        arrival_time: formatArrivalClock(time, estimated)
     };
 }
 
@@ -268,7 +306,7 @@ function displayResults(data) {
     displayDisruptions((data.event && data.event.verified_disruptions) || []);
     document.getElementById("outboundDistance").textContent = outbound.distance_miles != null ? outbound.distance_miles + " miles" : "-";
     document.getElementById("outboundTime").textContent = outbound.estimated_minutes != null ? outbound.estimated_minutes + " min" : "-";
-    document.getElementById("arrivalTime").textContent = outbound.arrival_time || "-";
+    document.getElementById("arrivalTime").textContent = formatArrivalValue(outbound);
     document.getElementById("outboundRisk").textContent = outbound.risk || "-";
     var resolvedOrigin = (data.request && (data.request.resolved_start || data.request.start_location)) || "-";
     document.getElementById("outboundDetails").innerHTML =
@@ -286,7 +324,7 @@ function displayResults(data) {
     document.getElementById("returnDetails").innerHTML =
         row("Normal driving time (OSRM)", formatValue(returnJourney.normal_minutes, "min")) +
         row("Estimated return time", formatValue(returnJourney.estimated_minutes, "min")) +
-        row("Estimated arrival", escapeHtml(returnJourney.arrival_time || "-")) +
+        row("Estimated arrival", escapeHtml(formatArrivalValue(returnJourney))) +
         row("Return risk", escapeHtml(returnJourney.risk || "-")) +
         row("Condition", escapeHtml(returnJourney.label || "-")) +
         note("Return times are modelled from the same event-adjustment method. They are not live measured speeds.");
