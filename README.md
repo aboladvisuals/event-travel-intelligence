@@ -25,8 +25,8 @@ The app does **not** pretend to be a live traffic-speed or live parking-occupanc
 
 ```
 Browser (GitHub Pages)
-    GET  /event
-    POST /analyze
+    GET  /event   (Render API, with event.json fallback)
+    POST /analyze (Render API, with Nominatim + OSRM fallback)
         -> FastAPI on Render
             -> Nominatim geocoding
             -> OSRM driving routes
@@ -42,6 +42,8 @@ Browser (GitHub Pages)
 - **Event intelligence**: configured venue, date, capacity and traffic-management window.
 - **Disruption intelligence**: verified records stored in `backend/event_config.py`, attributed to TfGM.
 - **Park & Ride intelligence**: Ladywell, Parkway and Sale Water Park. Drive time from the origin plus a configured transfer time.
+
+The original Pages failure (`Loading event...`) was caused by the browser blocking `https://event-travel-intelligence.onrender.com/event` because the API did not send CORS headers. The backend now includes FastAPI CORS middleware. The frontend still calls the public API first. If the browser cannot read that response, it falls back to same-origin `event.json` and can calculate an event-adjusted route with Nominatim + OSRM so the public site keeps working.
 
 ## Important limitations
 
@@ -84,7 +86,7 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open `frontend/index.html` with a local static server, or use the GitHub Pages copy at the repository root (`index.html`, `style.css`, `script.js`).
+Open the repository-root GitHub Pages files (`index.html`, `style.css`, `script.js`) or `frontend/index.html` with a local static server.
 
 The frontend calls the public Render API by default:
 
@@ -93,8 +95,9 @@ The frontend calls the public Render API by default:
 ## Deployment
 
 - Backend: Render web service from this repository, command typically `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+- After pushing backend CORS changes, trigger a Render deploy if auto-deploy is off. The live API should report version `1.0.1` and send `Access-Control-Allow-Origin` for `https://aboladvisuals.github.io`.
 - Frontend: GitHub Pages from the repository root so `/event-travel-intelligence/` serves `index.html`.
-- CORS is enabled for `https://aboladvisuals.github.io` and other `*.github.io` origins.
+- CORS is configured in `backend/main.py` for `https://aboladvisuals.github.io` and other `*.github.io` origins.
 
 Do not commit `.env` files, secrets or API keys.
 
