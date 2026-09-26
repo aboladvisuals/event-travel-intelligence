@@ -21,10 +21,11 @@ from backend.live_transport import (
     attach_live_to_journey,
     get_live_transport,
 )
+from backend.parking_intelligence import get_live_parking
 from backend.travel_engine import calculate_crowd_risk, calculate_journey, format_arrival
 
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 
 app = FastAPI(
     title="Event Travel Intelligence API",
@@ -41,7 +42,7 @@ app.add_middleware(
         "http://localhost:8000",
         "http://127.0.0.1:8000",
     ],
-    allow_origin_regex=r"https://.*\.github\.io",
+    allow_origin_regex=r"https://.*\.github.io",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,6 +100,11 @@ def get_current_event():
 @app.get("/transport/live")
 def transport_live():
     return get_live_transport()
+
+
+@app.get("/parking/live")
+def parking_live():
+    return get_live_parking()
 
 
 def _decorate_routes(options, live_traffic):
@@ -221,8 +227,11 @@ def analyze_journey(request: JourneyRequest):
                 "licensed measured-speed source is configured and returns data."
             ),
             "parking_disclaimer": (
-                "Parking availability is currently not live occupancy data."
+                "Live parking occupancy is shown only when an official feed "
+                "returns a state for that facility. Access times are drive plus "
+                "transfer estimates and are separate from occupancy."
             ),
+            "live_parking": get_live_parking(),
             "outbound": {
                 "distance_miles": outbound_primary["distance_miles"],
                 "routes": outbound_options,
