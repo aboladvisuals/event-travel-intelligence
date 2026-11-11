@@ -1,5 +1,7 @@
 # Event Travel Intelligence
 
+> **Portfolio case study:** https://aboladvisuals.github.io/projects/event-travel-intelligence/
+
 Event Travel Intelligence is a full-stack travel intelligence and decision-support platform for journeys to major events. It combines UK-biased geocoding, driving routes, a versioned event catalog, event-adjusted timing, crowd-risk modelling, verified disruption records, Park & Ride access analysis, and optional live transport or parking feeds when a real source is configured.
 
 The public deployment is production-verified through Phases 1–6. Modelled intelligence (event windows, extra delay, crowd risk, access times) is always separate from measured live data. Live traffic speeds and live parking occupancy are not invented.
